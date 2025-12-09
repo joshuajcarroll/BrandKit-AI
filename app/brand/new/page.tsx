@@ -139,7 +139,7 @@ export default function GeneratePage() {
                     id="targetAudience"
                     name="targetAudience"
                     placeholder="Busy pet parents in the city, early-stage founders, remote teams..."
-                    className="min-h-[80px]"
+                    className="min-h-20"
                   />
                 </div>
 

@@ -9,8 +9,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Palette, Type, Wand2, Sparkles } from "lucide-react";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { ArrowRight, Palette, Type, Wand2 } from "lucide-react";
 
 export default function LandingPage() {
   return (
