@@ -73,7 +73,7 @@ export default function PricingPage() {
 
           {/* Pro plan */}
           <Card className="border-indigo-200 bg-indigo-50 dark:border-indigo-500/60 dark:bg-slate-900/80 relative overflow-hidden">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 via-sky-400 to-emerald-400" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-linear-to-r from-indigo-500 via-sky-400 to-emerald-400" />
             <CardHeader>
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-lg">Pro</CardTitle>
