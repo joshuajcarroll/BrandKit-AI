@@ -4,25 +4,14 @@ import { v } from "convex/values";
 
 export default defineSchema({
   users: defineTable({
-    // Clerk user id, e.g. "user_2abc123..."
     clerkUserId: v.string(),
-
-    // Email from Clerk (for convenience / querying)
     email: v.string(),
-
-    // "free" | "pro"
+    name: v.optional(v.string()),
     plan: v.union(v.literal("free"), v.literal("pro")),
-
-    // How many brand kits they've created (for quick free-tier checks)
     brandKitCount: v.number(),
-
-    // Timestamps in ms since epoch (Date.now())
     createdAt: v.number(),
     updatedAt: v.optional(v.number()),
-  })
-    // You will look users up by clerkUserId a LOT
-    .index("by_clerkUserId", ["clerkUserId"])
-    .index("by_email", ["email"]),
+  }).index("by_clerkUserId", ["clerkUserId"]),
 
   brandKits: defineTable({
     // Reference to users table
