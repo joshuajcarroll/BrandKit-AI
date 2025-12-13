@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as brandKits from "../brandKits.js";
 import type * as users from "../users.js";
 
 import type {
@@ -17,6 +18,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  brandKits: typeof brandKits;
   users: typeof users;
 }>;
 
