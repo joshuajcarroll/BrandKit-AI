@@ -1,18 +1,16 @@
-// components/SyncUserWithConvex.tsx
 "use client";
 
-import { useEffect } from "react";
+import { api } from "@/convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useEffect } from "react";
 
 export default function SyncUserWithConvex() {
   const { user, isLoaded } = useUser();
   const updateUser = useMutation(api.users.updateUser);
 
   useEffect(() => {
-    if (!isLoaded) return;
-    if (!user) return;
+    if (!isLoaded || !user) return;
 
     const fullName = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
 
