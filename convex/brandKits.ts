@@ -2,9 +2,12 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+/**
+ * Create a new brand kit for the currently authenticated Clerk user.
+ * NOTE: We do NOT accept clerkUserId from the client (prevents spoofing).
+ */
 export const createBrandKit = mutation({
   args: {
-    clerkUserId: v.string(),
     businessName: v.string(),
     industry: v.optional(v.string()),
     description: v.optional(v.string()),
@@ -12,9 +15,14 @@ export const createBrandKit = mutation({
     targetAudience: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const clerkUserId = identity.subject;
+
     const user = await ctx.db
       .query("users")
-      .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", args.clerkUserId))
+      .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", clerkUserId))
       .first();
 
     if (!user) throw new Error("User not found in Convex. Sync user first.");
@@ -30,6 +38,7 @@ export const createBrandKit = mutation({
     const brandKitId = await ctx.db.insert("brandKits", {
       userId: user._id,
 
+      // user-provided
       businessName: args.businessName,
       industry: args.industry,
       description: args.description,
@@ -41,8 +50,9 @@ export const createBrandKit = mutation({
       brandSummary: undefined,
       brandVoice: undefined,
 
-      colors: [], // REQUIRED by schema
-      fonts: [], // REQUIRED by schema
+      // REQUIRED by schema
+      colors: [],
+      fonts: [],
 
       websiteHero: undefined,
       websiteSubheading: undefined,
@@ -70,9 +80,18 @@ export const createBrandKit = mutation({
   },
 });
 
+/**
+ * Get the current user's brand kits, newest first.
+ * NOTE: We do NOT accept clerkUserId from the client (prevents spoofing).
+ */
 export const getBrandKitsForUser = query({
-  args: { clerkUserId: v.string() },
-  handler: async (ctx, { clerkUserId }) => {
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+
+    const clerkUserId = identity.subject;
+
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", clerkUserId))
@@ -80,7 +99,7 @@ export const getBrandKitsForUser = query({
 
     if (!user) return [];
 
-    // Use your compound index so it stays fast as you grow
+    // Use compound index so it stays fast as you grow
     return await ctx.db
       .query("brandKits")
       .withIndex("by_userId_createdAt", (q) => q.eq("userId", user._id))
@@ -89,6 +108,10 @@ export const getBrandKitsForUser = query({
   },
 });
 
+/**
+ * Update generated fields for a brand kit.
+ * (Ownership check is recommended; we can add it when we wire generation.)
+ */
 export const updateGeneratedBrandKit = mutation({
   args: {
     brandKitId: v.id("brandKits"),
