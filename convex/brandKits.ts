@@ -99,7 +99,6 @@ export const getBrandKitsForUser = query({
 
     if (!user) return [];
 
-    // Use compound index so it stays fast as you grow
     return await ctx.db
       .query("brandKits")
       .withIndex("by_userId_createdAt", (q) => q.eq("userId", user._id))
@@ -115,11 +114,9 @@ export const getBrandKitsForUser = query({
 export const updateGeneratedBrandKit = mutation({
   args: {
     brandKitId: v.id("brandKits"),
-
     tagline: v.optional(v.string()),
     brandSummary: v.optional(v.string()),
     brandVoice: v.optional(v.string()),
-
     colors: v.optional(
       v.array(
         v.object({
@@ -135,7 +132,6 @@ export const updateGeneratedBrandKit = mutation({
         })
       )
     ),
-
     fonts: v.optional(
       v.array(
         v.object({
@@ -149,27 +145,36 @@ export const updateGeneratedBrandKit = mutation({
         })
       )
     ),
-
     websiteHero: v.optional(v.string()),
     websiteSubheading: v.optional(v.string()),
     websiteAbout: v.optional(v.string()),
     websiteServices: v.optional(v.array(v.string())),
     websiteCTA: v.optional(v.string()),
-
     instagramBio: v.optional(v.string()),
     tiktokBio: v.optional(v.string()),
     twitterBio: v.optional(v.string()),
-
     logoImageUrl: v.optional(v.string()),
     logoPromptUsed: v.optional(v.string()),
   },
   handler: async (ctx, { brandKitId, ...patch }) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const clerkUserId = identity.subject;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", clerkUserId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    // Get the brand kit and check ownership in one step
     const existing = await ctx.db.get(brandKitId);
     if (!existing) throw new Error("Brand kit not found");
+    if (existing.userId !== user._id) throw new Error("Unauthorized");
 
-    await ctx.db.patch(brandKitId, {
-      ...patch,
-      updatedAt: Date.now(),
-    });
+    // Patch only the provided fields
+    await ctx.db.patch(brandKitId, { ...patch, updatedAt: Date.now() });
   },
 });

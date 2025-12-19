@@ -35,7 +35,6 @@ const VIBE_OPTIONS = [
 export default function NewBrandPage() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
-
   const createBrandKit = useMutation(api.brandKits.createBrandKit);
 
   const [businessName, setBusinessName] = useState("");
@@ -51,10 +50,9 @@ export default function NewBrandPage() {
   }, [businessName, vibes.length, isSubmitting]);
 
   const toggleVibe = (v: string) => {
-    setVibes((prev) => {
-      if (prev.includes(v)) return prev.filter((x) => x !== v);
-      return [...prev, v];
-    });
+    setVibes((prev) =>
+      prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]
+    );
   };
 
   async function onSubmit(e: React.FormEvent) {
@@ -72,25 +70,19 @@ export default function NewBrandPage() {
       setIsSubmitting(true);
 
       const brandKitId = await createBrandKit({
-        clerkUserId: user.id,
         businessName: businessName.trim(),
-        industry: industry.trim() ? industry.trim() : undefined,
-        description: description.trim() ? description.trim() : undefined,
+        industry: industry.trim() || undefined,
+        description: description.trim() || undefined,
         vibe: vibes,
-        targetAudience: targetAudience.trim()
-          ? targetAudience.trim()
-          : undefined,
+        targetAudience: targetAudience.trim() || undefined,
       });
 
-      // Convex ids stringify nicely; Next route expects string
       router.push(`/brand/${brandKitId}`);
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Could not create brand kit. Please try again.";
-
-      setError(msg);
+      setError(
+        err instanceof Error ? err.message : "Could not create brand kit."
+      );
+    } finally {
       setIsSubmitting(false);
     }
   }
