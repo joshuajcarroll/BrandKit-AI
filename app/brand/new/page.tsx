@@ -1,11 +1,11 @@
-// app/brand/new/page.tsx
 "use client";
 
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
 
 const VIBE_OPTIONS = [
   "modern",
@@ -36,10 +35,9 @@ const VIBE_OPTIONS = [
 export default function NewBrandPage() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
-  const firstInputRef = useRef<HTMLInputElement>(null);
-  const errorRef = useRef<HTMLDivElement>(null);
-
   const createBrandKit = useMutation(api.brandKits.createBrandKit);
+
+  const errorRef = useRef<HTMLDivElement>(null);
 
   const [businessName, setBusinessName] = useState("");
   const [industry, setIndustry] = useState("");
@@ -49,20 +47,17 @@ export default function NewBrandPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Focus first input on load
-  useEffect(() => {
-    firstInputRef.current?.focus();
-  }, []);
-
   const canSubmit = useMemo(() => {
     return businessName.trim().length >= 2 && vibes.length > 0 && !isSubmitting;
   }, [businessName, vibes.length, isSubmitting]);
 
   const toggleVibe = (v: string) => {
     setVibes((prev) => {
-      const isLast = prev.includes(v) && prev.length === 1;
-      if (isLast) return prev; // cannot remove last vibe
-      return prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v];
+      if (prev.includes(v)) {
+        if (prev.length === 1) return prev; // prevent removing last vibe
+        return prev.filter((x) => x !== v);
+      }
+      return [...prev, v];
     });
   };
 
@@ -87,16 +82,19 @@ export default function NewBrandPage() {
         vibe: vibes,
         targetAudience: targetAudience.trim() || undefined,
       });
+
       toast.success("Brand kit created!");
+
       router.push(`/brand/${brandKitId}`);
     } catch (err: unknown) {
       const msg =
         err instanceof Error
           ? err.message
           : "Could not create brand kit. Please try again.";
+
       setError(msg);
 
-      // Scroll to error and focus
+      // Scroll to error & focus it (accessibility)
       setTimeout(() => {
         if (errorRef.current) {
           errorRef.current.scrollIntoView({
@@ -129,11 +127,9 @@ export default function NewBrandPage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Business name</label>
                 <Input
-                  ref={firstInputRef}
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
                   placeholder="e.g. Paw Palace"
-                  className="bg-white dark:bg-slate-950"
                   disabled={isSubmitting}
                 />
               </div>
@@ -147,7 +143,6 @@ export default function NewBrandPage() {
                   value={industry}
                   onChange={(e) => setIndustry(e.target.value)}
                   placeholder="e.g. Mobile dog grooming"
-                  className="bg-white dark:bg-slate-950"
                   disabled={isSubmitting}
                 />
               </div>
@@ -161,7 +156,7 @@ export default function NewBrandPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="What do you offer? What makes you different?"
-                  className="min-h-[110px] bg-white dark:bg-slate-950"
+                  className="min-h-[110px]"
                   disabled={isSubmitting}
                 />
               </div>
@@ -175,7 +170,6 @@ export default function NewBrandPage() {
                   value={targetAudience}
                   onChange={(e) => setTargetAudience(e.target.value)}
                   placeholder="e.g. Busy city pet parents"
-                  className="bg-white dark:bg-slate-950"
                   disabled={isSubmitting}
                 />
               </div>
@@ -190,27 +184,26 @@ export default function NewBrandPage() {
 
                     return (
                       <button
-                        type="button"
                         key={v}
+                        type="button"
+                        disabled={isSubmitting || isLastActive}
                         onClick={() => toggleVibe(v)}
-                        className={`rounded-full border px-3 py-1 text-xs transition
-                          ${
-                            active
-                              ? `border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-200 ${
-                                  isLastActive
-                                    ? "opacity-50 cursor-not-allowed"
-                                    : ""
-                                }`
-                              : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
-                          }`}
-                        disabled={isLastActive || isSubmitting}
+                        className={`rounded-full border px-3 py-1 text-xs transition ${
+                          active
+                            ? `border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-200 ${
+                                isLastActive
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : ""
+                              }`
+                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                        }`}
                       >
                         {v}
                       </button>
                     );
                   })}
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-slate-500">
                   Pick at least one. You can regenerate later.
                 </p>
               </div>
@@ -219,7 +212,7 @@ export default function NewBrandPage() {
               {error && (
                 <div
                   ref={errorRef}
-                  tabIndex={-1} // allows focusing
+                  tabIndex={-1}
                   className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200"
                 >
                   {error}
