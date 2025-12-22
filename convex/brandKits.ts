@@ -1,6 +1,7 @@
 // convex/brandKits.ts
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { streamText } from "ai";
 
 /**
  * Create a new brand kit for the currently authenticated Clerk user.
@@ -27,7 +28,6 @@ export const createBrandKit = mutation({
 
     if (!user) throw new Error("User not found in Convex. Sync user first.");
 
-    // Free tier limit: 1 brand kit
     const isPro = user.plan === "pro";
     if (!isPro && user.brandKitCount >= 1) {
       throw new Error("Free plan limit reached. Upgrade to Pro.");
@@ -37,36 +37,26 @@ export const createBrandKit = mutation({
 
     const brandKitId = await ctx.db.insert("brandKits", {
       userId: user._id,
-
-      // user-provided
       businessName: args.businessName,
       industry: args.industry,
       description: args.description,
       vibe: args.vibe,
       targetAudience: args.targetAudience,
-
-      // generated fields start empty
       tagline: undefined,
       brandSummary: undefined,
       brandVoice: undefined,
-
-      // REQUIRED by schema
       colors: [],
       fonts: [],
-
       websiteHero: undefined,
       websiteSubheading: undefined,
       websiteAbout: undefined,
       websiteServices: undefined,
       websiteCTA: undefined,
-
       instagramBio: undefined,
       tiktokBio: undefined,
       twitterBio: undefined,
-
       logoImageUrl: undefined,
       logoPromptUsed: undefined,
-
       createdAt: now,
       updatedAt: now,
     });
@@ -82,7 +72,6 @@ export const createBrandKit = mutation({
 
 /**
  * Get the current user's brand kits, newest first.
- * NOTE: We do NOT accept clerkUserId from the client (prevents spoofing).
  */
 export const getBrandKitsForUser = query({
   args: {},
@@ -91,7 +80,6 @@ export const getBrandKitsForUser = query({
     if (!identity) return [];
 
     const clerkUserId = identity.subject;
-
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", clerkUserId))
@@ -109,7 +97,6 @@ export const getBrandKitsForUser = query({
 
 /**
  * Update generated fields for a brand kit.
- * (Ownership check is recommended; we can add it when we wire generation.)
  */
 export const updateGeneratedBrandKit = mutation({
   args: {
@@ -157,24 +144,76 @@ export const updateGeneratedBrandKit = mutation({
     logoPromptUsed: v.optional(v.string()),
   },
   handler: async (ctx, { brandKitId, ...patch }) => {
-    // Get authenticated user
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
     const clerkUserId = identity.subject;
-
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", clerkUserId))
       .first();
     if (!user) throw new Error("User not found");
 
-    // Get the brand kit and check ownership in one step
     const existing = await ctx.db.get(brandKitId);
     if (!existing) throw new Error("Brand kit not found");
     if (existing.userId !== user._id) throw new Error("Unauthorized");
 
-    // Patch only the provided fields
     await ctx.db.patch(brandKitId, { ...patch, updatedAt: Date.now() });
+  },
+});
+
+/**
+ * Generate AI content for a specific field in a brand kit.
+ */
+export const generateBrandKitField = mutation({
+  args: {
+    brandKitId: v.id("brandKits"),
+    field: v.union(
+      v.literal("tagline"),
+      v.literal("brandSummary"),
+      v.literal("brandVoice")
+    ),
+  },
+  handler: async (ctx, { brandKitId, field }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const clerkUserId = identity.subject;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkUserId", (q) => q.eq("clerkUserId", clerkUserId))
+      .first();
+    if (!user) throw new Error("User not found");
+
+    const brandKit = await ctx.db.get(brandKitId);
+    if (!brandKit) throw new Error("Brand kit not found");
+    if (brandKit.userId !== user._id) throw new Error("Unauthorized");
+
+    let prompt = "";
+    if (field === "tagline") {
+      prompt = `Write a short, catchy tagline for a business called "${brandKit.businessName}" in the ${brandKit.industry || "general"} industry.`;
+    } else if (field === "brandSummary") {
+      prompt = `Write a concise brand summary for a business called "${brandKit.businessName}" in the ${brandKit.industry || "general"} industry. Include the vibe: ${brandKit.vibe.join(", ")}.`;
+    } else if (field === "brandVoice") {
+      prompt = `Describe the brand voice for a business called "${brandKit.businessName}" with vibe: ${brandKit.vibe.join(", ")}.`;
+    }
+
+    // StreamTextResult gives you a `textStream` async iterable 👇
+    const result = await streamText({
+      model: "gpt-5.1",
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    let generated = "";
+    for await (const chunk of result.textStream) {
+      generated += chunk; // accumulate each piece of text
+    }
+
+    await ctx.db.patch(brandKitId, {
+      [field]: generated,
+      updatedAt: Date.now(),
+    });
+
+    return generated;
   },
 });

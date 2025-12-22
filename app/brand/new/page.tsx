@@ -85,6 +85,7 @@ export default function NewBrandPage() {
 
       toast.success("Brand kit created!");
 
+      // Navigate to Step 2: AI Generation page
       router.push(`/brand/${brandKitId}`);
     } catch (err: unknown) {
       const msg =
